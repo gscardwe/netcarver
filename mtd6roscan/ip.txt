@@ -1,3 +1,0 @@
-8581788	69.6.138.16	struct ip L (dst) cksum-bad
-31375108	113.0.115.14	struct ip L (dst) cksum-bad
-32106244	113.0.115.14	struct ip L (dst) cksum-bad
