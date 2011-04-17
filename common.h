@@ -121,6 +121,17 @@ struct ssid_object {
 	char postgram[50];
 };
 
+struct sid_object {
+	char sidname[13];
+};
+
+struct bs_object {
+	int count;
+	char pregram[50];
+	uint16_t mnc;
+	char postgram[50];
+};
+
 template < typename T, typename U >
 multimap< U, T > converse_map( const map< T, U >& o )
 {
