@@ -114,21 +114,24 @@ struct addr_object {
     uint32_t src;
 };
 
-struct ssid_object {
+struct str_object {
 	int count;
 	char pregram[50];
 	char ssidname[50];
 	char postgram[50];
 };
-
+/*
 struct sid_object {
-	char sidname[13];
-};
+	int count;
+	char sidname[100];
+	char pregram[100];
+	char postgram[100];
+};*/
 
 struct bs_object {
 	int count;
 	char pregram[50];
-	uint16_t mnc;
+	char *mnc;
 	char postgram[50];
 };
 
