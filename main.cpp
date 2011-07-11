@@ -7,25 +7,34 @@
 *******************************************************************************/
 #include "common.h"
 #include <string>
+#include <iostream>
 enum debugLevel verbose = OFF;
 
 /* Array for data */
 #define captures 1000
 str_object sid[captures];
-//sid_object stump[captures];
-bs_object cid[captures]; //for binary grep searches
-str_object meta[captures]; //for base station format searches
-str_object btm[captures];  //bluetooth data structures
-int totalCap = 0;   		/*keep track of total structs */
+bs_object cid[captures];	//for binary grep searches
+str_object meta[captures];  //for base station format searches
+str_object btm[captures];   //bluetooth data structures
+str_object ssid[captures];  //ssid search
+str_object ip[captures];    //ip search
+str_object sim[captures];   //sim search
+ip_object bin[captures];    //binary ip search
+str_object bin2[captures];
+int totalCap = 0;   		//keep track of total structs
 int nGram = 1;
 
 void usage(char *prog)	{
 	cout <<	"Usage:  "	<< prog << " [options] -f <file> " << endl;
-	cout << "        [-b Search for bluetooth data structure ]" << endl;
-	cout << "        [-s 'input' ASCII string search ]"	<< endl;
+	cout << "        -s [input] ASCII grep"	<< endl;
+	cout << "        -b [: -] MAC data structure" << endl;	
 	//cout << "        [-b 'input' Search binary SSID's]" << endl;
-	cout << "        [-d 'Cell ID#' Grep Search binary CID's ]" << endl;
-	cout << "        [-t 'Search for Base Station Metadata   ]" << endl;
+	//cout << "        [-d [CID#]  Grep Search CID's   ]" << endl;
+	cout << "        -t [: -] BS Metadata " << endl;
+	cout << "        -i IP ASCII grep  " << endl;
+	cout << "        -m SIM grep" << endl;
+	cout << "        -a SSID grep" << endl;
+	cout << "        -p Binary IP" << endl;
 	exit(-1);
 }
 
@@ -52,9 +61,7 @@ void dumpBSID() {
     for(int n = 0; n<totalCap; n++){
     	cout << cid[n].count ;
 		cout << "\t" << cid[n].mnc ;
-		//cout << "\t" << cid[n].pregram  ;
 		printf("\t %s ", cid[n].pregram); 
-		//cout << "\t" << cid[n].postgram << endl;
 		printf("\t %s ", cid[n].postgram);
 		cout << endl;
     }
@@ -63,13 +70,15 @@ void dumpBSID() {
 
 void dumpBSMeta(){
 	cout << endl << "Results:" << endl;
-    cout << "Count\tInput\tPre\tPost" << endl << "--------------------------------------------" << endl;
+    cout << "Count\tBS Metadata\tPre\tPost" << endl << "-------------------------------------------------" << endl;
     
     for(int n = 0; n<totalCap; n++){
+		int reformpre  = 0x0000ff & meta[n].pregram[0];
+		int reformpost = 0x0000ff & meta[n].postgram[0];
     	cout << meta[n].count ;
 		cout << "\t" << meta[n].ssidname ;
-		printf("\t %s ", meta[n].pregram); 
-		printf("\t %s ", meta[n].postgram);
+		printf("\t0x%x ", reformpre); 
+		printf("\t 0x%x ", reformpost);
 		cout << endl;
     }
     cout << " " << endl;
@@ -77,17 +86,170 @@ void dumpBSMeta(){
 
 void dumpBT(){
 	cout << endl << "Results:" << endl;
-    cout << "Count\tInput\tPre\tPost" << endl << "--------------------------------------------" << endl;
-    
+    cout << "Count\t\tMAC\t   Pre\tPost" << endl << "--------------------------------------------" << endl;
+	
     for(int n = 0; n<totalCap; n++){
+		int reformpre  = 0x0000ff & btm[n].pregram[0];
+		int reformpost = 0x0000ff & btm[n].postgram[0];
     	cout << btm[n].count ;
 		cout << "\t" << btm[n].ssidname ;
-		printf("\t %s ", btm[n].pregram); 
-		printf("\t %s ", btm[n].postgram);
+		printf("  0x%x", reformpre); 
+		printf("\t0x%x", reformpost);
 		cout << endl;
     }
     cout << " " << endl;
 }
+
+void dumpIP(){
+	cout << endl << "Results:" << endl;
+    cout << "Count\tIP Address\t  Pre\tPost" << endl << "--------------------------------------------" << endl;
+    
+    for(int n = 0; n<totalCap; n++){
+		int reformpre  = 0x0000ff & ip[n].pregram[0];
+		int reformpost = 0x0000ff & ip[n].postgram[0];
+    	cout << ip[n].count ;
+		printf("\t %s", ip[n].ssidname);
+		if (strlen(ip[n].ssidname) < 15){
+			printf("\t  0x%x ", reformpre);
+		}
+		else {printf("  0x%x ", reformpre);}
+		printf("\t  0x%x ", reformpost);
+		cout << endl;
+    }
+    cout << " " << endl;
+}
+
+void dumpSSID(){
+	cout << endl << "Results:" << endl;
+    cout << "Count\tSSID" << endl << "----------------------------" << endl;
+    
+    for(int n = 0; n<totalCap; n++){
+    	cout << ssid[n].count ;
+		cout << "\t" << ssid[n].ssidname ;
+		//printf("\t0x%x", ssid[n].pregram[0]); 
+		//printf("\t0x%s", ssid[n].postgram[0]);
+		cout << endl;
+    }
+    cout << " " << endl;
+}
+
+void dumpSIM(){
+	cout << endl << "Results:" << endl;
+    cout << "Count\tSIM Number" << endl << "--------------------------------" << endl;
+    
+    for(int n = 0; n<totalCap; n++){
+    	cout << sim[n].count ;
+		cout << "\t" << sim[n].ssidname ;
+		//printf("\t0x%2x ", sim[n].pregram[0]); 
+		//printf("\t 0x%x ", sim[n].postgram[0]);
+		cout << endl;
+    }
+    cout << " " << endl;
+}
+
+void dumpBIN(){
+	cout << endl << "Results:" << endl;
+    cout << "Count\tPotential IP Address" << endl << "--------------------------------------" << endl;
+    
+    for(int n = 0; n<totalCap; n++){
+    	cout << bin[n].count ;
+		printf("\t %d.", bin[n].t1);
+		printf("%d.", bin[n].t2);
+		printf("%d.", bin[n].t3);
+		printf("%d", bin[n].t4);
+		cout << endl;
+    }
+    cout << " " << endl;
+}
+
+void str_sorter(str_object *value){
+	str_object *xx = new str_object;
+	
+	int i = 0;
+	while (i < totalCap){
+		
+		for(int n = 1; n<totalCap; n++){
+			int len = strlen(value[n].ssidname);
+			if (value[n].count > value[n-1].count){
+				xx->count = value[n-1].count;
+				memcpy(xx->ssidname, value[n-1].ssidname, len);
+				memcpy(xx->pregram, value[n-1].pregram, 1);
+				memcpy(xx->postgram, value[n-1].postgram, 1);
+				
+				value[n-1].count = value[n].count;
+				memcpy(value[n-1].ssidname, value[n].ssidname, len);
+				memcpy(value[n-1].pregram, value[n].pregram, 1);
+				memcpy(value[n-1].postgram, value[n].postgram, 1);
+
+				value[n].count = xx->count;
+				memcpy(value[n].ssidname, xx->ssidname, len);
+				memcpy(value[n].pregram, xx->pregram, 1);
+				memcpy(value[n].postgram, xx->postgram, 1);
+				
+			}
+		}
+		i++;
+	}
+	xx = NULL;
+}
+
+void ip_sorter(ip_object *bvalue){
+	ip_object *xx = new ip_object;
+	int i = 0;
+	while (i < totalCap){
+		
+		for(int n = 1; n<totalCap; n++){
+			if (bvalue[n].count > bvalue[n-1].count){
+				xx->count = bvalue[n].count;
+				xx->t1 = bvalue[n].t1;
+				xx->t2 = bvalue[n].t2;
+				xx->t3 = bvalue[n].t3;
+				xx->t4 = bvalue[n].t4;
+				memcpy(xx->pregram, bvalue[n].pregram, 1);
+				memcpy(xx->postgram, bvalue[n].postgram, 1);
+				
+				bvalue[n].count = bvalue[n-1].count;
+				bvalue[n].t1 = bvalue[n-1].t1;
+				bvalue[n].t2 = bvalue[n-1].t2;
+				bvalue[n].t3 = bvalue[n-1].t3;
+				bvalue[n].t4 = bvalue[n-1].t4;
+				memcpy(bvalue[n].pregram, bvalue[n-1].pregram, 1);
+				memcpy(bvalue[n].postgram, bvalue[n-1].postgram, 1);
+				
+				bvalue[n-1].count = xx->count;
+				bvalue[n-1].t1 = xx->t1;
+				bvalue[n-1].t2 = xx->t2;
+				bvalue[n-1].t3 = xx->t3;
+				bvalue[n-1].t4 = xx->t4;
+				memcpy(bvalue[n-1].pregram, xx->pregram, 1);
+				memcpy(bvalue[n-1].postgram, xx->postgram, 1);
+				
+			}
+		}
+		i++;
+	}
+	xx = NULL;
+}
+
+
+/*void dumpBIN2(){
+	cout << endl << "Results:" << endl;
+	cout << "Count\t\tIP CRAP ADDRESS!!!" << endl << "--------------------------------------------" << endl;
+
+	for(int n = 0; n<totalCap; n++){
+		cout << bin2[n].count;
+		printf("\t%x.",bin2[n].ssidname[0]);
+		printf("%x.",bin2[n].ssidname[1]);
+		printf("%x.",bin2[n].ssidname[2]);
+		printf("%x",bin2[n].ssidname[3]);
+		
+		//printf("\t%s", bin2[n].pregram[0]); 
+		//printf("\t 0x%x ", bin2[n].postgram[0]);
+		cout << endl;
+	}
+	cout << " " << endl;
+}
+*/
 
 /*
 THIS CODE PROVIDES NO REAL VALUE - GSC 1 JUL 2011
@@ -193,16 +355,21 @@ int testbsid(char input, char *key, void *data){
 	if (match){
 		bs_object *tester = new bs_object;
 		memcpy(tester->pregram, contain-nGram, nGram);
+		memcpy(tester->mnc, contain, num_good_chars);
 		string str1 = tester->pregram;
+		string str2 = tester->mnc;
 		int newSSID = 1;
 
 		for(int n = 0; n<=totalCap; n++){
-			string str2 = cid[n].pregram;
-	
-			if (str1.compare(str2) == 0){
-				cid[n].count++;
-				newSSID = 0;
-				break;
+			string str3 = cid[n].pregram;
+			string str4 = cid[n].mnc;
+			
+			if (str2.compare(str4) == 0){
+				if(str1.compare(str3)== 0){
+					cid[n].count++;
+					newSSID = 0;
+					break;
+				}
 			}
 		}
 
@@ -210,14 +377,7 @@ int testbsid(char input, char *key, void *data){
 			cid[totalCap].count++;
 			memcpy(cid[totalCap].pregram, bcid-nGram, nGram);
 			cid[totalCap].mnc = key;
-			//cid[totalCap].postgram[0] = bcid[3];
-			//int m = 0;
-			/*while (m < nGram){
-				cid[totalCap].postgram[m] = bcid[m+length];
-				m++;
-			}*/
 			memcpy(cid[totalCap].postgram, bcid+length, nGram);
-			//cout << "CID: " << cid[totalCap].mnc << endl;
 			totalCap++;
 		}
 
@@ -228,10 +388,10 @@ int testbsid(char input, char *key, void *data){
 }
 
 int strRetriever(unsigned char *data, char *key) {
-
-    unsigned int maxlen = strlen(key); /* length of known wifi base */
+	unsigned int maxlen = strlen(key); 
     int num_good_chars = 0;
     bool comp = true;
+	unsigned char *contain = (unsigned char *) data;
     
     for (unsigned int z = 0; z<maxlen; z++){
     	if(data[z] != key[z]){
@@ -244,16 +404,21 @@ int strRetriever(unsigned char *data, char *key) {
     if (comp){
     	str_object *tester = new str_object;
         memcpy(tester->pregram, data-nGram, nGram);
+		memcpy(tester->ssidname, contain, num_good_chars);
     	string str1 = tester->pregram;
+		string str2 = tester->ssidname;
     	int newStr = 1;
     	
-    	for(int n = 0; n<=totalCap; n++){
-			string str2 = sid[n].pregram;
+		for(int n = 0; n<=totalCap; n++){
+			string str3 = sid[n].pregram;
+			string str4 = sid[n].ssidname;
 			
-			if (str1.compare(str2) == 0){
-				sid[n].count++;
-				newStr = 0;
-				break;
+			if (str2.compare(str4) == 0){
+				if(str1.compare(str3)== 0){
+					sid[n].count++;
+					newStr = 0;
+					break;
+				}
 			}
 		}
     	if (newStr){
@@ -269,19 +434,21 @@ int strRetriever(unsigned char *data, char *key) {
     return num_good_chars;
 }
 
-int btMeta(char inputSep, void *data){
+int btMeta(char *inputSep, void *data){
 	int num_good_chars = 0;
 	int match = 0;		//bool value for a match
 	int maxField = 2;	//max # of digits in fields
 	int colon = 0;      //bs metadata should have 4 fields,3colons. counts colons.
 	char *bcid = (char *) data;
 	unsigned char *contain = (unsigned char *) data;
+	char inputS = inputSep[0];
 
 	for (int j =0; j<6; j++){	//6 fields of 2 alphanumeric representations
 		int i = 0;
 		while (i < maxField){
 			if(isalnum(bcid[num_good_chars])){
 				num_good_chars++;
+				match = 1;
 			}
 			else {
 				match = 0;
@@ -290,10 +457,10 @@ int btMeta(char inputSep, void *data){
 			i++;
 		}
 		
-		if (colon == 5 && i > 0){
+		if (match && colon == 5 && i > 0){
 			match = 1;
 		}
-		else if (bcid[num_good_chars] == inputSep && num_good_chars){
+		else if (match && bcid[num_good_chars] == inputS && num_good_chars){
 			num_good_chars++;
 			colon++;
 			match = 1;
@@ -307,21 +474,26 @@ int btMeta(char inputSep, void *data){
 	if (match){
 		str_object *tester = new str_object;
 		memcpy(tester->pregram, contain-nGram, nGram);
+		memcpy(tester->ssidname, contain, num_good_chars);
 		string str1 = tester->pregram;
+		string str2 = tester->ssidname;
 		int newSSID = 1;
 		
 		for(int n = 0; n<=totalCap; n++){
-			string str2 = btm[n].pregram;
+			string str3 = btm[n].pregram;
+			string str4 = btm[n].ssidname;
 			
-			if (str1.compare(str2) == 0){
-				btm[n].count++;
-				newSSID = 0;
-				break;
+			if (str2.compare(str4) == 0){
+				if(str1.compare(str3)== 0){
+					btm[n].count++;
+					newSSID = 0;
+					break;
+				}
 			}
 		}
 		
 		if (newSSID){
-			meta[totalCap].count++;
+			btm[totalCap].count++;
 			memcpy(btm[totalCap].pregram, bcid-nGram, nGram);
 			memcpy(btm[totalCap].ssidname, bcid, num_good_chars);
 			memcpy(btm[totalCap].postgram, bcid+num_good_chars, nGram);
@@ -329,22 +501,27 @@ int btMeta(char inputSep, void *data){
 		}
 		
 		tester = NULL;
-	}	return num_good_chars;
+	}	
+	//cout << num_good_chars;
+	return num_good_chars;
 }
 
-int bsMetaData(char inputSep, void *data){
+int bsMetaData(char *inputSep, void *data){
 	int num_good_chars = 0;
 	int match = 0;		//bool value for a match
 	int maxField = 4;	//max # of digits in fields
 	int colon = 0;      //bs metadata should have 4 fields,3colons. counts colons.
 	char *bcid = (char *) data;
 	unsigned char *contain = (unsigned char *) data;
+	char inputS = inputSep[0];
 	
 	for (int j =0; j<4; j++){	//4 is the number of fields:cid/lac/mnc/mcc
 		int i = 0;
+		//int s = 0;              //ensure at least one digit per field
 		while (i < maxField){
 			if(isdigit(bcid[num_good_chars])){
 				num_good_chars++;
+		//		int s = 1;
 			}
 			else {
 				match = 0;
@@ -352,10 +529,12 @@ int bsMetaData(char inputSep, void *data){
 			}
 			i++;
 		}
-		if (colon == 3 && i > 0){
-			match = 1;
+		if (colon == 3 && j == 3){
+			if (bcid[num_good_chars] == inputS || isalnum(bcid[num_good_chars])){match = 0; break;}
+			else if (isalnum(bcid[-1])) {match = 0; break;}
+			else {match = 1;}
 		}
-		else if (bcid[num_good_chars] == inputSep && num_good_chars){
+		else if (bcid[num_good_chars] == inputS && num_good_chars){
 			num_good_chars++;
 			colon++;
 			match = 1;
@@ -364,24 +543,29 @@ int bsMetaData(char inputSep, void *data){
 			j = 4;
 			match = 0;
 		}
+
 	}
 	
 	if (match){
 		str_object *tester = new str_object;
 		memcpy(tester->pregram, contain-nGram, nGram);
+		memcpy(tester->ssidname, contain, num_good_chars);
 		string str1 = tester->pregram;
+		string str2 = tester->ssidname;
 		int newSSID = 1;
 		
 		for(int n = 0; n<=totalCap; n++){
-			string str2 = meta[n].pregram;
+			string str3 = meta[n].pregram;
+			string str4 = meta[n].ssidname;
 			
-			if (str1.compare(str2) == 0){
-				meta[n].count++;
-				newSSID = 0;
-				break;
+			if (str2.compare(str4) == 0){
+				if(str1.compare(str3)== 0){
+					meta[n].count++;
+					newSSID = 0;
+					break;
+				}
 			}
 		}
-		
 		if (newSSID){
 			meta[totalCap].count++;
 			memcpy(meta[totalCap].pregram, bcid-nGram, nGram);
@@ -395,6 +579,352 @@ int bsMetaData(char inputSep, void *data){
 	return num_good_chars;
 }
 
+int ssidSearch(void *data){
+	 //pulls SSIDs from wpa_supplicant.conf format
+	int num_good_chars = 0;
+	int num_ssid_chars = 0;
+	int match = 0;		//bool value for a match
+	char *bcid = (char *) data;
+	unsigned char *contain = (unsigned char *) data;
+	char *file = "ssid=\"";
+	char *end = "\"";
+		
+	for (int i =0; i<strlen(file);i++){
+		if(bcid[i] == file[i]){
+			num_ssid_chars++;
+			match = 1;
+		}
+		else {match = 0; break;}
+		
+	}
+	
+	if(match){
+		for(int j=num_ssid_chars; j<38; j++){	//38 = 6 ssid=" chars + 32 max ssid parameter
+			if (bcid[j] == end[0]){break;}
+			else {num_good_chars++;}
+		}
+	}
+		
+	if (match){
+		str_object *tester = new str_object;
+		memcpy(tester->pregram, contain-nGram+num_ssid_chars, nGram);
+		memcpy(tester->ssidname, contain+num_ssid_chars, num_good_chars);
+		string str1 = tester->pregram;
+		string str2 = tester->ssidname;
+		int newSSID = 1;
+		
+		for(int n = 0; n<=totalCap; n++){
+			string str3 = ssid[n].pregram;
+			string str4 = ssid[n].ssidname;
+			
+			if (str2.compare(str4) == 0){
+				if(str1.compare(str3)== 0){
+					ssid[n].count++;
+					newSSID = 0;
+					break;
+				}
+			}
+		}
+		if (newSSID){
+			ssid[totalCap].count++;
+			memcpy(ssid[totalCap].pregram, bcid-nGram+num_ssid_chars, nGram);
+			memcpy(ssid[totalCap].ssidname, bcid+num_ssid_chars, num_good_chars);
+			memcpy(ssid[totalCap].postgram, bcid+num_good_chars+num_ssid_chars, nGram);
+			totalCap++;
+		}
+		
+		tester = NULL;
+	}
+	return num_good_chars + num_ssid_chars;
+}
+
+int ipSearch(void *data){
+	// seaches for ip data structures
+	
+	int num_good_chars = 0;
+	int match = 0;		//bool value for a match
+	int maxField = 3;
+	int decimal = 0;
+	char *bcid = (char *) data;
+	unsigned char *contain = (unsigned char *) data;
+	char *inputS = ".";
+	
+	for (int j =0; j<4; j++){	//4 fields of up to 3 digits
+		int i = 0;
+		while (i < maxField){
+			if(isdigit(bcid[num_good_chars])){
+				num_good_chars++;
+				match = 1;
+			}
+			else {
+				match = 0;
+				break;
+			}
+			i++;
+		}
+		
+		if (decimal == 3 && i > 0){
+			match = 1;
+		}
+		else if (bcid[num_good_chars] == inputS[0] && num_good_chars){
+			num_good_chars++;
+			decimal++;
+			match = 1;
+		}
+		else {
+			j = 4;
+			match = 0;
+		}
+	}
+	
+	if (match){
+		str_object *tester = new str_object;
+		memcpy(tester->pregram, contain-nGram, nGram);
+		memcpy(tester->ssidname, contain, num_good_chars);
+		string str1 = tester->pregram;
+		string str2 = tester->ssidname;
+		int newSSID = 1;
+		
+		for(int n = 0; n<=totalCap; n++){
+			string str3 = ip[n].pregram;
+			string str4 = ip[n].ssidname;
+			
+			if (str2.compare(str4) == 0){
+				if(str1.compare(str3)== 0){
+					ip[n].count++;
+					newSSID = 0;
+					break;
+				}
+			}
+		}
+		if (newSSID){
+			ip[totalCap].count++;
+			memcpy(ip[totalCap].pregram, bcid-nGram, nGram);
+			memcpy(ip[totalCap].ssidname, bcid, num_good_chars);
+			memcpy(ip[totalCap].postgram, contain+num_good_chars, nGram);
+			//ip[totalCap].postgram = 0x000000ff & bcid[num_good_chars];
+			//tester->t4 = 0x000000ff & bcid[21];
+			totalCap++;
+		}
+		
+		tester = NULL;
+	}
+	return num_good_chars;
+}
+
+int simSearch(void *data){
+	// will pull sim as written by accounts.db and CheckinService.xml files
+	int num_good_chars = 0;
+	int num_sim_chars  = 0;
+	int match = 1;		//bool value for a match
+	char *bcid = (char *) data;
+	unsigned char *contain = (unsigned char *) data;
+	char *simgram = "lastSim\">00000000000000000018\n";
+	char *imsi    = "imsi";
+	int sgram = 0;
+	int igram = 0;
+
+	for (unsigned int z = 0; z<strlen(simgram); z++){
+    	if(bcid[z] != simgram[z]){
+    		match = 0;
+ 			break;
+    	}
+    	num_sim_chars++;
+	}
+
+	if(match){
+		sgram = 1;}
+	else {
+		num_sim_chars = 0;
+		for (unsigned int z = 0; z<strlen(imsi); z++){
+			if(bcid[z] != imsi[z]){
+				match = 0;
+				break;
+			}
+			match = 1;
+			num_sim_chars++;
+		}
+		if (match){igram = 1;}
+	}
+	
+	
+	int j = num_sim_chars;
+	char *end = "<";
+	char *iend = " ";
+	
+	if(sgram){
+		while (bcid[j] != end[0]){
+			num_good_chars++;
+			j++;
+		}
+	}
+	else if(igram){
+		while (bcid[j] != iend[0]){
+			num_good_chars++;
+			j++;
+		}
+	}
+		
+
+	if (match){
+		str_object *tester = new str_object;
+		memcpy(tester->pregram, contain-nGram+num_sim_chars, nGram);
+		memcpy(tester->ssidname, contain+num_sim_chars, num_good_chars);
+		string str1 = tester->pregram;
+		string str2 = tester->ssidname;
+		int newSSID = 1;
+		
+		for(int n = 0; n<=totalCap; n++){
+			string str3 = sim[n].pregram;
+			string str4 = sim[n].ssidname;
+			
+			if (str2.compare(str4) == 0){
+				if(str1.compare(str3)== 0){
+					sim[n].count++;
+					newSSID = 0;
+					break;
+				}
+			}
+		}
+		if (newSSID){
+			sim[totalCap].count++;
+			memcpy(sim[totalCap].pregram, bcid-nGram+num_sim_chars, nGram);
+			memcpy(sim[totalCap].ssidname, bcid+num_sim_chars, num_good_chars);
+			memcpy(sim[totalCap].postgram, bcid+num_good_chars+num_sim_chars, nGram);
+			totalCap++;
+		}
+		
+		tester = NULL;
+	}
+	return num_good_chars+num_sim_chars;
+}
+
+int binSearch(void * data){
+	int num_good_chars = 0;
+	int num_bin_chars = 0;
+	char *bcid = (char *) data;
+	//uint32_t *bcit = (uint32_t *) data;
+	//unsigned char *contain = (unsigned char *) data;
+	int match = 1;
+	char bing[5] = {255, 255, 02, 01, 06};
+	
+	for (int z = 0; z<5; z++){
+		if(bcid[z] != bing[z]){
+    		match = 0;
+ 			break;
+    	}
+		num_bin_chars++;
+	}
+	
+	if (match){
+		num_good_chars = 13;
+	}
+	
+	if (match){
+		
+		ip_object *tester = new ip_object;
+		memcpy(tester->pregram, bcid-nGram, nGram);
+		tester->t1 = 0x000000ff & bcid[18];
+		tester->t2 = 0x000000ff & bcid[19];
+		tester->t3 = 0x000000ff & bcid[20];
+		tester->t4 = 0x000000ff & bcid[21];
+	
+		string str1 = tester->pregram;
+		int newSSID = 1;
+		
+		for(int n = 0; n<=totalCap; n++){
+			string str3 = bin[n].pregram;
+			
+			if (tester->t1 == bin[n].t1){
+				if (tester->t2 == bin[n].t2){
+					if (tester->t3 == bin[n].t3){
+						if (tester->t4 == bin[n].t4){
+							if(str1.compare(str3)== 0){
+								bin[n].count++;
+								newSSID = 0;
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		if (newSSID){
+			bin[totalCap].count++;
+			memcpy(bin[totalCap].pregram, bcid-nGram, nGram);
+			bin[totalCap].t1 = 0x000000ff & (bcid[18]);
+			bin[totalCap].t2 = 0x000000ff & (bcid[19]);
+			bin[totalCap].t3 = 0x000000ff & (bcid[20]);
+			bin[totalCap].t4 = 0x000000ff & (bcid[21]);
+			totalCap++;
+		}
+		
+		tester = NULL;
+	}
+	
+	return num_good_chars+num_bin_chars;
+}
+
+/*
+int binSearch22(void *data){
+	int num_good_chars = 0;
+	int num_bin_chars = 0;
+	char *bcid = (char *) data;
+	unsigned char *contain = (unsigned char *) data;
+	int match = 1;
+	char bing[5] = {255, 255, 02, 01, 06};
+	
+	for (int z = 0; z<5; z++){
+		if(bcid[z] != bing[z]){
+    		match = 0;
+ 			break;
+    	}
+		num_bin_chars++;
+	}
+	
+	if (match){
+		num_good_chars = 13;
+	}
+	
+	if (match){
+		str_object *tester = new str_object;
+		memcpy(tester->pregram, contain-nGram, nGram);
+		memcpy(tester->ssidname, contain+num_good_chars+num_bin_chars, 4);
+		string str1 = tester->pregram;
+		string str2 = tester->ssidname;
+		int newSSID = 1;
+		
+		for(int n = 0; n<=totalCap; n++){
+			string str3 = bin2[n].pregram;
+			string str4 = bin2[n].ssidname;
+			
+			if (str2.compare(str4) == 0){
+				if(str1.compare(str3)== 0){
+					bin2[n].count++;
+					newSSID = 0;
+					break;
+				}
+			}
+		}
+		if (newSSID){
+			for (int y = 0; y< 21; y++){
+				//cout << hex << (uint8_t)(bcid[y])<<" "<<endl;
+				printf("%1x\n", (unsigned int)contain[y]);
+			}
+			bin2[totalCap].count++;
+			memcpy(bin2[totalCap].pregram, bcid-nGram, nGram);
+			memcpy(bin2[totalCap].ssidname, bcid+num_good_chars+num_bin_chars, 4);
+			//memcpy(bin2[totalCap].postgram, bcid+num_good_chars+num_bin_chars, nGram);
+			totalCap++;
+		}
+		
+		tester = NULL;
+	}
+	
+	return num_good_chars+num_bin_chars;
+}
+*/
 unsigned long mmapOpen(char *file, void **data) {
     unsigned long len = file_size(file);
     if (len <= 0)
@@ -411,25 +941,34 @@ int main (int argc, char * const argv[]) {
 	int ch;
 	char *key    = NULL;
 	char *file   = NULL;
-	bool str     = false;  //String search
-	bool bt      = false;  //bluetooth search
+	bool ssidbool    = false;  //ssid search
+	bool ipbool      = false;  //IP search
+	bool strbool     = false;  //String search
+	bool btbool      = false;  //bluetooth search
+	bool simbool     = false;  //sim data
+	bool binarybool  = false;  //dhcp lease binary ip data
 	//bool binssid = false;
-	bool bsid    = false;  //Grep binary search
-	bool bsmeta  = false;  //Search for bs metadata format xxx:xxx:xx:xx
+	bool bsidbool    = false;  //Grep binary search
+	bool bsmetabool  = false;  //Search for bs metadata format xxx:xxx:xx:xx
 	int advance  = 0;
 	char input;			   //big or little endian
-	char inputSep;		   //to indicate a : or - seperator
+	char *inputSep;		   //to indicate a : or - seperator
 	
-	while ((ch = getopt(argc, argv, "s:d:btf:")) != EOF) {
-		//cout << "greg" << endl;
+	while ((ch = getopt(argc, argv, "s:d:b:t:aimpf:")) != EOF) {
+		
 		switch ((char) ch) {
 				
+		case 'a':
+			ssidbool = true;
+			break;
+				
 		case 'b':
-			bt = true;
+			btbool = true;
+			inputSep = optarg;
 			break;
 				
 		case 's':
-			str = true;
+			strbool = true;
 			key  = optarg;
 			break;
 		
@@ -439,16 +978,30 @@ int main (int argc, char * const argv[]) {
 			break;*/
 		
 		case 'd':
-			bsid = true;
+			bsidbool = true;
 			key = optarg;
 			break;
 				
 		case 't':
-			bsmeta = true;
+			bsmetabool = true;
+			inputSep = optarg;
 			break;
 			
 		case 'f':
 			file = optarg;
+			break;
+				
+		case 'i':
+			ipbool = true;
+			break;
+				
+		case 'm':
+			simbool = true;
+			break;
+				
+		case 'p':
+			binarybool = true;
+			//nGram = 4;
 			break;
 		
 		default:
@@ -467,27 +1020,16 @@ int main (int argc, char * const argv[]) {
     unsigned char *c = (unsigned char *) data;
   
     unsigned long bytes_read = 0;
-	
-	if(bsid){
-		cout << "\nPlease indicate Little Endian (l) or Big Endian (b): ";
-		cin >> input;
-	}
-	
-	if (bsmeta || bt){
-		cout << "\nPlease indicate (:) or (-) seperators: ";
-		cin >> inputSep;
-	}
  
     cerr << "\nPlease wait, currently searching: \n";
     if (key){cerr << key << "\n" << endl;}
 	
 	
-	int length = 1;
+	int length = 5;
 	if (key){length = strlen(key);}
 
     while (bytes_read <= len-length) {
-		//cout << "greg" << endl;
-    	if(str){
+    	if(strbool){
     		advance = strRetriever(c, key);
     		if (advance){
     			c+=(advance-1);
@@ -495,8 +1037,15 @@ int main (int argc, char * const argv[]) {
     		}
     	}
 		
-		else if(bt){
-			//cout << "greg" << endl;
+		else if (ssidbool){
+			advance = ssidSearch(c);
+    		if(advance){
+    			c+=(advance-1);
+    			bytes_read+=(advance-1);
+    		}		
+		}
+		
+		else if(btbool){
 			advance = btMeta(inputSep ,c);
     		if(advance){
     			c+=(advance-1);
@@ -514,38 +1063,84 @@ int main (int argc, char * const argv[]) {
     	}
     	*/
     	
-		else if(bsid){
+		else if(bsidbool){
     		advance = testbsid(input, key, c);
     		if(advance){
     			c+=(advance-1);
     			bytes_read+=(advance-1);
     		}
     	}
-		else if (bsmeta){
-			//cout << "greg" << endl;
-			//cout << 'greg'<<endl;
+		else if (bsmetabool){
 			advance = bsMetaData(inputSep, c);
 			if(advance){
 				c+=(advance-1);
 				bytes_read+=(advance-1);
 			}
 		}
+		
+		else if (ipbool){
+			advance = ipSearch(c);
+			if(advance){
+				c+=(advance-1);
+				bytes_read+=(advance-1);
+			}
+		}
+		
+		else if (simbool){
+			advance = simSearch(c);
+			if(advance){
+				c+=(advance-1);
+				bytes_read+=(advance-1);
+			}
+		}
+		
+		else if (binarybool){
+			advance = binSearch(c);
+			if(advance){
+				c+=(advance-1);
+				bytes_read+=(advance-1);
+			}
+		}
+		
     	c++;
     	bytes_read++;
     	if (bytes_read % 10000000 == 0) cerr << ".";
     }
 	cout << "\n" <<endl;
 	
-    if (str)
+    if (strbool){
+		str_sorter(sid);
         dumpStrings();
-        
+	}
 	/*if (binssid)
 		dumpResults3();*/
-	if (bt)
+	if (btbool){
+		str_sorter(btm);
 		dumpBT();
-    if (bsid)
+	}
+	
+    if (bsidbool){
     	dumpBSID();
-	if (bsmeta)
+	}
+	if (bsmetabool){
+		str_sorter(meta);
 		dumpBSMeta();
+	}
+	if (ssidbool){
+		str_sorter(ssid);
+		dumpSSID();
+	}
+	if (ipbool){
+		str_sorter(ip);
+		dumpIP();
+	}
+	if (simbool){
+		str_sorter(sim);
+		dumpSIM();
+	}
+	if (binarybool){
+		ip_sorter(bin);
+		dumpBIN();
+	}
 	return 0;
 }

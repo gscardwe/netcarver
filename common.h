@@ -114,6 +114,16 @@ struct addr_object {
     uint32_t src;
 };
 
+struct ip_object {
+    int count;
+	char pregram[50];
+    uint32_t t1;
+    uint32_t t2;
+    uint32_t t3;
+    uint32_t t4;
+	char postgram[50];
+};
+
 struct str_object {
 	int count;
 	char pregram[50];
