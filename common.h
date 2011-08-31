@@ -124,10 +124,21 @@ struct ip_object {
 	char postgram[50];
 };
 
+
 struct str_object {
 	int count;
 	char pregram[50];
 	char ssidname[50];
+	char postgram[50];
+};
+
+struct ipgrep_object{
+    int count;
+	uint32_t pregram;
+    uint32_t t1;
+    uint32_t t2;
+    uint32_t t3;
+    uint32_t t4;
 	char postgram[50];
 };
 /*

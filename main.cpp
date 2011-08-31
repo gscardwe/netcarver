@@ -1,7 +1,6 @@
 /*******************************************************************************
 	Program:		main.cpp
 	Author:			Greg Cardwell <gscardwe@nps.edu>
-					Rob Beverly   <rbeverly@nps.edu>
 	Description:	BSSID and WiFi SSID carver
 	
 *******************************************************************************/
@@ -20,7 +19,11 @@ str_object ssid[captures];  //ssid search
 str_object ip[captures];    //ip search
 str_object sim[captures];   //sim search
 ip_object bin[captures];    //binary ip search
+ipgrep_object bgrep[captures];	// binary ip grep struct big endian
+ip_object bgrep1[captures]; // binary ip grep struct little endian
 str_object bin2[captures];
+struct in_addr ip_addr;
+struct in_addr ip_addrL;
 int totalCap = 0;   		//keep track of total structs
 int nGram = 1;
 
@@ -31,10 +34,12 @@ void usage(char *prog)	{
 	//cout << "        [-b 'input' Search binary SSID's]" << endl;
 	//cout << "        [-d [CID#]  Grep Search CID's   ]" << endl;
 	cout << "        -t [: -] BS Metadata " << endl;
-	cout << "        -i IP ASCII grep  " << endl;
-	cout << "        -m SIM grep" << endl;
-	cout << "        -a SSID grep" << endl;
-	cout << "        -p Binary IP" << endl;
+	cout << "        -i IP ASCII grep  "    << endl;
+	cout << "        -m SIM grep"           << endl;
+	cout << "        -a SSID grep"          << endl;
+	cout << "        -p Binary IP"          << endl;
+	cout << "        -g Binary IP Grep"     << endl;
+	cout << "        -y nGram Size"         << endl;
 	exit(-1);
 }
 
@@ -90,10 +95,12 @@ void dumpBT(){
 	
     for(int n = 0; n<totalCap; n++){
 		int reformpre  = 0x0000ff & btm[n].pregram[0];
+		//int reformpre1  = 0x0000ff & btm[n].pregram[1];
 		int reformpost = 0x0000ff & btm[n].postgram[0];
     	cout << btm[n].count ;
 		cout << "\t" << btm[n].ssidname ;
 		printf("  0x%x", reformpre); 
+		//printf("  %x", reformpre1);
 		printf("\t0x%x", reformpost);
 		cout << endl;
     }
@@ -160,6 +167,24 @@ void dumpBIN(){
 		cout << endl;
     }
     cout << " " << endl;
+}
+
+void dumpIPGrep(char *key){
+	cout << endl << "Results:" << endl;
+    cout << "Count\t"<<key<<" "<<"\t"<<nGram<<" gram"<< endl; 
+	cout << "--------------------------------------" << endl;
+    
+    for(int n = 0; n<totalCap; n++){
+    	cout << bgrep[n].count ;
+		printf("\t%2x ", bgrep[n].t1);
+		printf("%2x ", bgrep[n].t2);
+		printf("%2x ", bgrep[n].t3);
+		printf("%2x ", bgrep[n].t4);
+		printf("  %X ", bgrep[n].pregram);
+		cout << endl;
+    }
+    cout << " " << endl;
+	//delete bgrep;
 }
 
 void str_sorter(str_object *value){
@@ -231,6 +256,44 @@ void ip_sorter(ip_object *bvalue){
 	xx = NULL;
 }
 
+/*
+void ipgrep_sorter(ipgrep_object *bvalue){
+	ip_object *xx = new ip_object;
+	int i = 0;
+	while (i < totalCap){
+		
+		for(int n = 1; n<totalCap; n++){
+			if (bvalue[n].count > bvalue[n-1].count){
+				xx->count = bvalue[n].count;
+				xx->t1 = bvalue[n].t1;
+				xx->t2 = bvalue[n].t2;
+				xx->t3 = bvalue[n].t3;
+				xx->t4 = bvalue[n].t4;
+				memcpy(xx->pregram, bvalue[n].pregram, 1);
+				memcpy(xx->postgram, bvalue[n].postgram, 1);
+				
+				bvalue[n].count = bvalue[n-1].count;
+				bvalue[n].t1 = bvalue[n-1].t1;
+				bvalue[n].t2 = bvalue[n-1].t2;
+				bvalue[n].t3 = bvalue[n-1].t3;
+				bvalue[n].t4 = bvalue[n-1].t4;
+				memcpy(bvalue[n].pregram, bvalue[n-1].pregram, 1);
+				memcpy(bvalue[n].postgram, bvalue[n-1].postgram, 1);
+				
+				bvalue[n-1].count = xx->count;
+				bvalue[n-1].t1 = xx->t1;
+				bvalue[n-1].t2 = xx->t2;
+				bvalue[n-1].t3 = xx->t3;
+				bvalue[n-1].t4 = xx->t4;
+				memcpy(bvalue[n-1].pregram, xx->pregram, 1);
+				memcpy(bvalue[n-1].postgram, xx->postgram, 1);
+				
+			}
+		}
+		i++;
+	}
+	xx = NULL;
+}*/
 
 /*void dumpBIN2(){
 	cout << endl << "Results:" << endl;
@@ -866,6 +929,172 @@ int binSearch(void * data){
 	return num_good_chars+num_bin_chars;
 }
 
+int binaryGrep(char	* key, void * data){
+	int num_good_chars = 0;
+	int num_bin_chars = 0;
+	char *bcid = (char *) data;
+	uint32_t * bcit = (uint32_t *) data;
+	uint32_t * comp_addr;
+	//if (bcid[0] == key[0]){cout << "greg rulx"<<endl;}
+
+	int match = 0;
+	//int bing[3];
+	//char * bout[4];
+	//string key1 = (string)key;
+	char sen[14], sen1[14], sen2[14], sen3[14];
+	char per[1], per1[1], per2[2];
+
+	sscanf(key, "%[^.] %c %[^.] %c %[^.] %c %[^=\n]", sen, per, sen1, per1, sen2, per2, sen3);
+	strcat(sen3, ".");
+	strcat(sen3, sen2);
+	strcat(sen3, ".");
+	strcat(sen3, sen1);
+	strcat(sen3, ".");
+	strcat(sen3, sen);
+	
+	inet_aton(sen3, &ip_addrL);
+	//printf("%x \n", ip_addrL.s_addr);
+	//uint32_t *greg = (uint32_t *)ip_addr.s_addr;
+	//printf("ggg=%x   iiii=%x      \n", greg, bcit);
+	if ((ip_addr.s_addr == *bcit) || (ip_addrL.s_addr == *bcit)) {
+		match = 1;
+	}
+	
+	//comp_addr = 0x0000ff & bcit[z]
+	//cout <<comp_addr<<endl;
+	//char greg = 192;
+	//sscanf(sen, "%x", &i);
+	//int buffer[1];
+	//printf("%x\n", bcid[0]);
+	
+	//printf("%2x", buffer);
+	/*if(bcid[0] == key[0]){
+		cout << "greg rulx"<<endl;
+		cout << bcid[0] << " " << key[0] << endl;
+		num_bin_chars++;
+		if (bcid[1] == 0xA8){
+			num_bin_chars++;
+			if (bcid[2] == 0x01){
+				num_bin_chars++;
+				if (bcid[3] == 0x01){
+					num_bin_chars++;
+					match = 1;
+					cout << "greg rulx"<<endl;
+					//break;
+				}
+			}
+		}
+	}
+	
+	for (int x = 0; x < strlen(key); x++){
+		if (bcid[x] == key[x]){
+			match = 1;
+			num_bin_chars++;
+		}
+		else {match=0; x = strlen(key);}
+	}*/
+	//if(match){cout<<"greg laksdjfklas"<<endl;}
+	
+
+	
+	/*
+	int spin = 0;
+	int spin2 = 0;
+	for (int z = 0; z<4; z++){
+		int y = spin2;
+		int spin = 0;
+		if(key[y] == '.'){
+			y++;}
+		while(key[y] != '.'){
+			y++;
+			spin++;
+			spin2++;
+		}
+		bing[z] = spin;
+
+	}
+	ipgrep_object *key1 = new ipgrep_object;
+	
+	memcpy(key1->t1, key, 2);
+	bout[0] = key1->t1;
+
+	memcpy(key1->t2, key+bing[0]+1, bing[1]);
+	bout[1] = key1->t2;
+
+	memcpy(key1->t3, key+bing[0]+bing[1]+2, bing[2]);
+	bout[2] = key1->t3;
+
+	memcpy(key1->t4, key+bing[0]+bing[1]+bing[2]+3, bing[3]);
+	bout[3] = key1->t4;
+	
+	key1 = NULL;
+	
+	for (int z = 0; z<4; z++){
+		if(bcid[z] != bout[z] ){
+    		match = 0;
+ 			break;
+    	}
+		num_bin_chars++;
+	}
+	*/
+	//match = 0;
+	if (match){
+		//cout<<"MAKE IT HERE YET?"<<endl;
+		ipgrep_object *tester = new ipgrep_object;
+		//memcpy(tester->pregram, bcid-nGram, nGram);
+		char * bob1 = (char *) data-nGram;
+		tester->pregram = bob1[0];
+		//tester->t1 = 0x000000ff & bing[0];
+		//tester->t2 = 0x000000ff & bing[1];
+		//tester->t3 = 0x000000ff & bing[2];
+		//tester->t4 = 0x000000ff & bing[3];
+		
+		//string str1 = tester->pregram;
+		int newSSID = 1;
+		
+		//for (int j = 1; j<=nGram; j++){
+			
+		
+		/*for(int n = 0; n<=totalCap; n++){
+			string str3 = bgrep[n].pregram;
+			
+			if (tester->t1 == bgrep[n].t1){
+				if (tester->t2 == bgrep[n].t2){
+					if (tester->t3 == bgrep[n].t3){
+						if (tester->t4 == bgrep[n].t4){
+							if(str1.compare(str3)== 0){
+								bgrep[n].count++;
+								newSSID = 0;
+								break;
+							}
+						}
+					}
+				}
+			}
+		}*/
+		
+		if (newSSID){
+			bgrep[totalCap].count++;
+			
+			//memcpy(bgrep[totalCap].t1, bcid[0], 1);
+			char * bob = (char *) data-nGram;
+			//memcpy(bgrep[totalCap].pregram, bob, nGram);
+			bgrep[totalCap].pregram = bob[1] & bob[0];
+			bgrep[totalCap].t1 = 0x000000ff & (bcid[0]);
+			//printf("%x\n", bgrep[totalCap].pregram);
+			bgrep[totalCap].t2 = 0x000000ff & (bcid[1]);
+			bgrep[totalCap].t3 = 0x000000ff & (bcid[2]);
+			bgrep[totalCap].t4 = 0x000000ff & (bcid[3]);
+			totalCap++;
+		}
+		
+		tester = NULL;
+	}
+	
+	return num_good_chars;
+  
+}
+
 /*
 int binSearch22(void *data){
 	int num_good_chars = 0;
@@ -941,12 +1170,14 @@ int main (int argc, char * const argv[]) {
 	int ch;
 	char *key    = NULL;
 	char *file   = NULL;
+	
 	bool ssidbool    = false;  //ssid search
 	bool ipbool      = false;  //IP search
 	bool strbool     = false;  //String search
 	bool btbool      = false;  //bluetooth search
 	bool simbool     = false;  //sim data
 	bool binarybool  = false;  //dhcp lease binary ip data
+	bool binGrep	 = false;  //binary IP grep
 	//bool binssid = false;
 	bool bsidbool    = false;  //Grep binary search
 	bool bsmetabool  = false;  //Search for bs metadata format xxx:xxx:xx:xx
@@ -954,7 +1185,7 @@ int main (int argc, char * const argv[]) {
 	char input;			   //big or little endian
 	char *inputSep;		   //to indicate a : or - seperator
 	
-	while ((ch = getopt(argc, argv, "s:d:b:t:aimpf:")) != EOF) {
+	while ((ch = getopt(argc, argv, "s:d:b:t:g:y:aimpf:")) != EOF) {
 		
 		switch ((char) ch) {
 				
@@ -1003,6 +1234,17 @@ int main (int argc, char * const argv[]) {
 			binarybool = true;
 			//nGram = 4;
 			break;
+		case 'g':
+			binGrep = true;
+			key = optarg;
+			inet_aton(optarg, &ip_addr);
+			printf("greg is searching for: %x\n",ip_addr.s_addr);
+			break;
+				
+		case'y':
+			nGram = atoi(optarg);
+		    //cout << "greg" <<nGram<<endl;
+			break;
 		
 		default:
 			usage(argv[0]);
@@ -1027,8 +1269,9 @@ int main (int argc, char * const argv[]) {
 	
 	int length = 5;
 	if (key){length = strlen(key);}
+	if(binGrep){length = strlen(key);}
 
-    while (bytes_read <= len-length) {
+    while (bytes_read < len-length-1) {
     	if(strbool){
     		advance = strRetriever(c, key);
     		if (advance){
@@ -1102,6 +1345,15 @@ int main (int argc, char * const argv[]) {
 			}
 		}
 		
+		else if(binGrep){
+			
+    		advance = binaryGrep(key, c);
+    		if(advance){
+    			c+=(advance-1);
+    			bytes_read+=(advance-1);
+    		}
+    	}
+		
     	c++;
     	bytes_read++;
     	if (bytes_read % 10000000 == 0) cerr << ".";
@@ -1141,6 +1393,10 @@ int main (int argc, char * const argv[]) {
 	if (binarybool){
 		ip_sorter(bin);
 		dumpBIN();
+	}
+	if (binGrep){
+		//ip_sorter(bgrep);
+		dumpIPGrep(key);
 	}
 	return 0;
 }
